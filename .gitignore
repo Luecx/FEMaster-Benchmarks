@@ -1,0 +1,14 @@
+# Ignore everything
+*
+
+# Keep directories traversable
+!*/
+
+# Keep benchmark source/reference files
+!*.py
+!*.inp
+!*.res.ref
+
+# Keep Git configuration files
+!.gitignore
+!.gitattributes
