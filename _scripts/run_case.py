@@ -1,3 +1,4 @@
+import gzip
 import pathlib
 import os
 import re
@@ -73,21 +74,24 @@ def compare_results(result_path, reference_path, rtol=1e-4, atol=1e-8):
         fields = []
         field = None
 
-        for line in path.read_text().splitlines():
-            if line.startswith("FIELD"):
-                field = {
-                    "name": re.search(r"NAME=([^,]+)", line).group(1),
-                    "rows": {}
-                }
-                fields.append(field)
-                continue
+        open_text = gzip.open if path.suffix == ".gz" else open
 
-            if line.startswith("END FIELD") or field is None:
-                continue
+        with open_text(path, "rt") as stream:
+            for line in stream:
+                if line.startswith("FIELD"):
+                    field = {
+                        "name": re.search(r"NAME=([^,]+)", line).group(1),
+                        "rows": {}
+                    }
+                    fields.append(field)
+                    continue
 
-            parts = line.split()
-            if len(parts) > 1:
-                field["rows"][parts[0]] = [float(x) for x in parts[1:]]
+                if line.startswith("END FIELD") or field is None:
+                    continue
+
+                parts = line.split()
+                if len(parts) > 1:
+                    field["rows"][parts[0]] = [float(x) for x in parts[1:]]
 
         return fields
 
@@ -186,7 +190,7 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
     case = ROOT / name
     model = case / "model.inp"
     result = case / "model.res"
-    reference = case / "model.res.ref"
+    reference = case / "model.res.ref.gz"
     log = case / "model.log"
 
     # check if the folder exists
@@ -206,7 +210,7 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
 
     # remove generated files
     for file in os.listdir(case):
-        if not (file.endswith(".inp") or file.endswith(".ref") or file.endswith(".yaml")):
+        if not file.endswith((".inp", ".ref", ".ref.gz", ".yaml")):
             os.remove(case / file)
 
     # run solver
@@ -239,7 +243,7 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
 
     # clean generated files
     for file in os.listdir(case):
-        if not (file.endswith(".inp") or file.endswith(".ref") or file.endswith(".yaml")):
+        if not file.endswith((".inp", ".ref", ".ref.gz", ".yaml")):
             os.remove(case / file)
 
     return meta, passed, detail

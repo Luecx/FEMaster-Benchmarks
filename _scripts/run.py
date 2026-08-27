@@ -116,7 +116,8 @@ def create_table(results, running=None):
             "-",
             "-",
             "-",
-            "-" if threads == 1 else format_time(results[name][1]["meta"]["time"]),
+            "-" if threads == 1 or results[name][1]["meta"] is None
+                else format_time(results[name][1]["meta"]["time"]),
             "-",
             "-",
             Text(f"RUNNING {threads}T", style="yellow"),

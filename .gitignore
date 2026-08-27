@@ -8,6 +8,7 @@
 !*.py
 !*.inp
 !*.res.ref
+!*.res.ref.gz
 
 # Keep Git configuration files
 !.gitignore
