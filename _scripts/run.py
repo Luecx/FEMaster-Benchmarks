@@ -175,6 +175,51 @@ def write_github_summary(results):
             f"| {status} |"
         )
 
+    total_nodes       = 0
+    total_dofs        = 0
+    total_constraints = 0
+    total_nonzeros    = 0
+    total_t1          = 0.0
+    total_t4          = 0.0
+    passed            = 0
+
+    for model in results.values():
+        r1 = model[1]
+        r4 = model[4]
+        meta = r1["meta"] or r4["meta"]
+
+        if meta:
+            total_nodes       += meta["num_nodes"] or 0
+            total_dofs        += meta["num_dofs"] or 0
+            total_constraints += meta["num_constraints"] or 0
+            total_nonzeros    += meta["num_nonzeros"] or 0
+
+        if r1["meta"] and r1["meta"]["time"]:
+            total_t1 += r1["meta"]["time"]
+
+        if r4["meta"] and r4["meta"]["time"]:
+            total_t4 += r4["meta"]["time"]
+
+        if r1["passed"] and r4["passed"]:
+            passed += 1
+
+    total_speedup = total_t1 / total_t4 if total_t1 and total_t4 else None
+    total_status  = "PASS" if passed == len(results) else "FAIL"
+
+    lines.append(
+        f"| **Total ({len(results)} models)** "
+        f"| - "
+        f"| **{total_nodes:,}** "
+        f"| **{total_dofs:,}** "
+        f"| - "
+        f"| **{total_constraints:,}** "
+        f"| **{total_nonzeros:,}** "
+        f"| **{format_time(total_t1)}** "
+        f"| **{format_time(total_t4)}** "
+        f"| **{f'{total_speedup:.2f}x' if total_speedup else '-'}** "
+        f"| **{total_status} ({passed}/{len(results)})** |"
+    )
+
     with open(path, "a") as f:
         f.write("\n".join(lines) + "\n")
 
