@@ -9,6 +9,7 @@
 !*.inp
 !*.res.ref
 !*.res.ref.gz
+!README.md
 
 # Keep Git configuration files
 !.gitignore
