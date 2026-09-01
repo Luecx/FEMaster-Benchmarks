@@ -1,0 +1,51 @@
+results:
+  DISPLACEMENT:
+    max_abs:
+      value: 9.4675750000000006e-03
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRAIN:
+    max_abs:
+      value: 9.8342460000000006e-05
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRESS:
+    max_abs:
+      value: 2.7800660000000001e+01
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRESS_TOP:
+    max_abs:
+      value: 2.7800660000000001e+01
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRESS_BOT:
+    max_abs:
+      value: 2.7800660000000001e+01
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  SHELL_RESULTANTS:
+    max_abs:
+      value: 0.0000000000000000e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  EXTERNAL_FORCES:
+    max_abs:
+      value: 6.6666669999999995e-01
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  REACTION_FORCES:
+    max_abs:
+      value: 8.5532369999999993e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  LOCAL_SECTION_FORCES:
+    max_abs:
+      value: 1.9000000000000000e+01
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  SHEAR_FLOW:
+    max_abs:
+      value: 1.9000000000000000e+01
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08

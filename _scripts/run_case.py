@@ -1,9 +1,11 @@
-import gzip
 import pathlib
 import os
 import re
 import subprocess
 import sys
+
+import yaml
+
 
 ROOT = pathlib.Path(__file__).parent.parent.absolute()
 
@@ -69,59 +71,119 @@ def read_log_meta(path, meta):
         meta["time"] = sum(map(int, matches)) / len(matches) / 1000.0
 
 
-def compare_results(result_path, reference_path, rtol=1e-2, atol=1e-8):
-    def read(path):
-        fields = []
-        field = None
+def read_result_maxima(path):
+    """Read the maximum absolute value of every FIELD in a FEMaster .res file."""
+    fields = {}
+    field = None
 
-        open_text = gzip.open if path.suffix == ".gz" else open
+    with open(path, "rt") as stream:
+        for line in stream:
+            if line.startswith("FIELD"):
+                match = re.search(r"NAME=([^,]+)", line)
+                if not match:
+                    raise RuntimeError(f"Could not parse FIELD line:\n{line}")
 
-        with open_text(path, "rt") as stream:
-            for line in stream:
-                if line.startswith("FIELD"):
-                    field = {
-                        "name"     : re.search(r"NAME=([^,]+)", line).group(1),
-                        "maximum"  : 0.0,
-                    }
-                    fields.append(field)
-                    continue
+                field = match.group(1).strip()
+                fields[field] = 0.0
+                continue
 
-                if line.startswith("END FIELD") or field is None:
-                    continue
+            if line.startswith("END FIELD"):
+                field = None
+                continue
 
-                parts = line.split()
-                if len(parts) > 1:
-                    # Retain only the per-field maximum magnitude for the benchmark check.
-                    field["maximum"] = max(
-                        field["maximum"],
-                        max(map(abs, map(float, parts[1:]))),
-                    )
+            if field is None:
+                continue
 
-        return fields
+            parts = line.split()
+            if len(parts) <= 1:
+                continue
 
-    result = read(result_path)
-    reference = read(reference_path)
+            try:
+                values = [float(value) for value in parts[1:]]
+            except ValueError:
+                continue
 
-    if len(result) != len(reference):
-        return f"field count differs: {len(result)} vs {len(reference)}"
+            if values:
+                fields[field] = max(
+                    fields[field],
+                    max(abs(value) for value in values),
+                )
 
-    for field, ref_field in zip(result, reference):
-        if field["name"] != ref_field["name"]:
-            return f"field differs: {field['name']} vs {ref_field['name']}"
+    if not fields:
+        raise RuntimeError(f"No result fields found in '{path}'.")
 
-        maximum     = field["maximum"]
-        ref_maximum = ref_field["maximum"]
-        error       = abs(maximum - ref_maximum)
-        tolerance   = atol + rtol * ref_maximum
+    return fields
+
+
+def read_target(path):
+    """Load and validate the benchmark target YAML."""
+    with open(path, "rt") as stream:
+        data = yaml.safe_load(stream)
+
+    if not isinstance(data, dict):
+        raise RuntimeError(f"Invalid target file '{path}': expected a YAML mapping.")
+
+    results = data.get("results")
+    if not isinstance(results, dict) or not results:
+        raise RuntimeError(f"Invalid target file '{path}': missing non-empty 'results' mapping.")
+
+    return results
+
+
+def compare_results(result_path, target_path):
+    """
+    Compare FEMaster result maxima against explicitly defined YAML targets.
+
+    Only fields listed in target.yaml are checked. Extra fields in model.res are
+    intentionally ignored, allowing benchmarks to target only physically relevant
+    quantities.
+    """
+    result = read_result_maxima(result_path)
+    targets = read_target(target_path)
+
+    for field_name, field_target in targets.items():
+        if field_name not in result:
+            return f"{field_name}: field missing from result"
+
+        if not isinstance(field_target, dict):
+            return f"{field_name}: target must be a mapping"
+
+        unknown_metrics = set(field_target) - {"max_abs"}
+        if unknown_metrics:
+            metrics = ", ".join(sorted(unknown_metrics))
+            return f"{field_name}: unsupported target metric(s): {metrics}"
+
+        max_abs = field_target.get("max_abs")
+        if max_abs is None:
+            return f"{field_name}: missing max_abs target"
+
+        if isinstance(max_abs, (int, float)):
+            ref_value = float(max_abs)
+            rtol = 1e-2
+            atol = 1e-8
+        elif isinstance(max_abs, dict):
+            if "value" not in max_abs:
+                return f"{field_name}: max_abs target is missing 'value'"
+
+            ref_value = float(max_abs["value"])
+            rtol = float(max_abs.get("rtol", 1e-2))
+            atol = float(max_abs.get("atol", 1e-8))
+        else:
+            return f"{field_name}: invalid max_abs target"
+
+        value = result[field_name]
+        error = abs(value - ref_value)
+        tolerance = atol + rtol * abs(ref_value)
 
         if error > tolerance:
-            relative_error = error / ref_maximum if ref_maximum > 0.0 else 0.0
+            relative_error = error / abs(ref_value) if ref_value != 0.0 else None
+            relative_text = f"{relative_error:.2%}" if relative_error is not None else "n/a"
 
             return (
-                f"{field['name']}: maximum magnitude "
-                f"{maximum:.6e} vs {ref_maximum:.6e}, "
+                f"{field_name}: maximum magnitude "
+                f"{value:.6e} vs {ref_value:.6e}, "
                 f"abs={error:.2e}, "
-                f"rel={relative_error:.2%}, "
+                f"rel={relative_text}, "
                 f"tol={tolerance:.2e}"
             )
 
@@ -132,7 +194,7 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
     case = ROOT / name
     model = case / "model.inp"
     result = case / "model.res"
-    reference = case / "model.res.ref.gz"
+    target = case / "target.yaml"
     log = case / "model.log"
 
     # check if the folder exists
@@ -147,8 +209,8 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
     if not model.exists():
         raise FileNotFoundError("Model not found: {}".format(model))
 
-    if not reference.exists():
-        raise FileNotFoundError("Model reference result not found: {}".format(reference))
+    if not target.exists():
+        raise FileNotFoundError("Benchmark target not found: {}".format(target))
 
     # remove generated files
     for file in os.listdir(case):
@@ -163,6 +225,9 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
                 stdout=f,
                 stderr=subprocess.STDOUT,
             )
+
+    if not result.exists():
+        raise FileNotFoundError("Solver did not create result file: {}".format(result))
 
     meta = {
         "time"              : None,
@@ -179,13 +244,13 @@ def run_case(solver_path, name, num_runs=1, ncpus=1):
     read_input_meta(model, meta)
     read_log_meta(log, meta)
 
-    # compare result against reference
-    detail = compare_results(result, reference)
+    # compare result against explicit YAML target
+    detail = compare_results(result, target)
     passed = detail is None
 
     # clean generated files
     for file in os.listdir(case):
-        if not file.endswith((".inp", ".ref", ".ref.gz", ".yaml")):
+        if not file.endswith((".inp", ".yaml")):
             os.remove(case / file)
 
     return meta, passed, detail

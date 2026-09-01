@@ -7,8 +7,7 @@
 # Keep benchmark source/reference files
 !*.py
 !*.inp
-!*.res.ref
-!*.res.ref.gz
+!*.yaml
 !README.md
 
 # Keep Git configuration files
