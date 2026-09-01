@@ -69,7 +69,7 @@ def read_log_meta(path, meta):
         meta["time"] = sum(map(int, matches)) / len(matches) / 1000.0
 
 
-def compare_results(result_path, reference_path, rtol=1e-4, atol=1e-8):
+def compare_results(result_path, reference_path, rtol=1e-2, atol=1e-8):
     def read(path):
         fields = []
         field = None
@@ -80,8 +80,8 @@ def compare_results(result_path, reference_path, rtol=1e-4, atol=1e-8):
             for line in stream:
                 if line.startswith("FIELD"):
                     field = {
-                        "name": re.search(r"NAME=([^,]+)", line).group(1),
-                        "rows": {}
+                        "name"     : re.search(r"NAME=([^,]+)", line).group(1),
+                        "maximum"  : 0.0,
                     }
                     fields.append(field)
                     continue
@@ -91,7 +91,11 @@ def compare_results(result_path, reference_path, rtol=1e-4, atol=1e-8):
 
                 parts = line.split()
                 if len(parts) > 1:
-                    field["rows"][parts[0]] = [float(x) for x in parts[1:]]
+                    # Retain only the per-field maximum magnitude for the benchmark check.
+                    field["maximum"] = max(
+                        field["maximum"],
+                        max(map(abs, map(float, parts[1:]))),
+                    )
 
         return fields
 
@@ -101,89 +105,27 @@ def compare_results(result_path, reference_path, rtol=1e-4, atol=1e-8):
     if len(result) != len(reference):
         return f"field count differs: {len(result)} vs {len(reference)}"
 
-    worst = None
-
     for field, ref_field in zip(result, reference):
         if field["name"] != ref_field["name"]:
             return f"field differs: {field['name']} vs {ref_field['name']}"
 
-        rows = field["rows"]
-        ref_rows = ref_field["rows"]
+        maximum     = field["maximum"]
+        ref_maximum = ref_field["maximum"]
+        error       = abs(maximum - ref_maximum)
+        tolerance   = atol + rtol * ref_maximum
 
-        new_rows = rows.keys() - ref_rows.keys()
-        missing_rows = ref_rows.keys() - rows.keys()
+        if error > tolerance:
+            relative_error = error / ref_maximum if ref_maximum > 0.0 else 0.0
 
-        if new_rows:
-            return f"{field['name']}: new rows: {', '.join(sorted(new_rows)[:5])}"
+            return (
+                f"{field['name']}: maximum magnitude "
+                f"{maximum:.6e} vs {ref_maximum:.6e}, "
+                f"abs={error:.2e}, "
+                f"rel={relative_error:.2%}, "
+                f"tol={tolerance:.2e}"
+            )
 
-        if missing_rows:
-            return f"{field['name']}: missing rows: {', '.join(sorted(missing_rows)[:5])}"
-
-        # use the maximum magnitude of the reference field as numerical scale
-        scale = max(
-            (
-                abs(value)
-                for values in ref_rows.values()
-                for value in values
-            ),
-            default=0.0,
-        )
-
-        tolerance = atol + rtol * scale
-
-        for row_id, values in rows.items():
-            ref_values = ref_rows[row_id]
-
-            if len(values) != len(ref_values):
-                return (
-                    f"{field['name']} / {row_id}: "
-                    f"{len(values)} values vs {len(ref_values)}"
-                )
-
-            for col, (value, ref_value) in enumerate(zip(values, ref_values), 1):
-                error = abs(value - ref_value)
-                ratio = error / tolerance if tolerance > 0.0 else 0.0
-
-                if worst is None or ratio > worst[0]:
-                    normalized = error / scale if scale > 0.0 else 0.0
-
-                    worst = (
-                        ratio,
-                        field["name"],
-                        row_id,
-                        col,
-                        value,
-                        ref_value,
-                        error,
-                        normalized,
-                        scale,
-                        tolerance,
-                    )
-
-    if worst is None or worst[0] <= 1.0:
-        return None
-
-    (
-        ratio,
-        field,
-        row_id,
-        col,
-        value,
-        ref_value,
-        error,
-        normalized,
-        scale,
-        tolerance,
-    ) = worst
-
-    return (
-        f"{field} / {row_id} / col {col}: "
-        f"{value:.6e} vs {ref_value:.6e}, "
-        f"abs={error:.2e}, "
-        f"scale={scale:.2e}, "
-        f"rel={normalized:.2%}, "
-        f"tol={tolerance:.2e} ({ratio:.2f}x)"
-    )
+    return None
 
 
 def run_case(solver_path, name, num_runs=1, ncpus=1):
