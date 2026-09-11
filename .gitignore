@@ -8,6 +8,7 @@
 !*.py
 !*.inp
 !*.yaml
+!requirements.txt
 !README.md
 
 # Keep Git configuration files
