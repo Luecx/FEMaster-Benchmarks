@@ -211,7 +211,6 @@ def run_solver(
                 [
                     str(solver),
                     model.name,
-                    "--no-frd",
                     "--ncpus",
                     str(ncpus),
                 ],
