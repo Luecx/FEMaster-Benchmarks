@@ -4,31 +4,6 @@ results:
       value: 1.0000000000000000e+01
       rtol: 1.0000000000000000e-02
       atol: 1.0000000000000000e-08
-  STRAIN:
-    max_abs:
-      value: 1.3226730000000000e+00
-      rtol: 1.0000000000000000e-02
-      atol: 1.0000000000000000e-08
-  STRESS:
-    max_abs:
-      value: 3.2567029999999999e+00
-      rtol: 1.0000000000000000e-02
-      atol: 1.0000000000000000e-08
-  STRESS_TOP:
-    max_abs:
-      value: 3.2567029999999999e+00
-      rtol: 1.0000000000000000e-02
-      atol: 1.0000000000000000e-08
-  STRESS_BOT:
-    max_abs:
-      value: 3.2567029999999999e+00
-      rtol: 1.0000000000000000e-02
-      atol: 1.0000000000000000e-08
-  SHELL_RESULTANTS:
-    max_abs:
-      value: 0.0000000000000000e+00
-      rtol: 1.0000000000000000e-02
-      atol: 1.0000000000000000e-08
   EXTERNAL_FORCES:
     max_abs:
       value: 0.0000000000000000e+00
@@ -36,7 +11,32 @@ results:
       atol: 1.0000000000000000e-08
   REACTION_FORCES:
     max_abs:
-      value: 1.6473960000000002e+01
+      value: 7.3332829999999998e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRESS:
+    max_abs:
+      value: 2.3000020000000001e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRAIN:
+    max_abs:
+      value: 1.1574350000000000e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRESS_TOP:
+    max_abs:
+      value: 2.3000020000000001e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  STRESS_BOT:
+    max_abs:
+      value: 2.3000020000000001e+00
+      rtol: 1.0000000000000000e-02
+      atol: 1.0000000000000000e-08
+  SHELL_RESULTANTS:
+    max_abs:
+      value: 0.0000000000000000e+00
       rtol: 1.0000000000000000e-02
       atol: 1.0000000000000000e-08
   LOCAL_SECTION_FORCES:
